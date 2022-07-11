@@ -1,0 +1,49 @@
+*/SENTENCIA SQL PARA LA CREACION DE LA TABLA TRANSACCIONES QUE ALMACENA LOS REGISTROS DE TODOS LOS ARCHIVOS CSV*/
+
+CREATE TABLE meli.transacciones (
+  id string,
+  nombre string,
+  apellido string,
+  email string,
+  genero string,
+  valor_tx string,
+  numero_identificacion string,
+  tipo_identificacion string
+) OPTIONS (
+    expiration_timestamp = TIMESTAMP '2022-08-01 00:00:00 UTC',
+    description = 'a table that expires in Agosto 2022',
+    labels = [('org_unit', 'development')]);
+	
+	
+*/SENTENCIA PARA LA CARGAR LOS ARCHIVOS CSV ALMACENADOS EN CLOUD STORAGE A LA TABLA CREADA EN BIG QUERY*/	
+
+bq load     --noreplace     --source_format=CSV     meli.transacciones     gs://dataproc-staging-us-central1-1065935946725-jwkfygkk*/.csv	
+
+
+*/SENTENCIA SQL PARA LA CREACION DE LA TABLA CLIENTES UNICOS QUE ALMACENA LOS REGISTROS UNICOS DE NUMERO IDENTIFICACION Y TIPO IDENTIFICACION 
+	DE LA TABLA TRANSACCIONES MAS EL CAMPO HASH MD5*/
+
+CREATE TABLE meli.clientes_unicos AS 
+SELECT  numero_identificacion,
+  tipo_identificacion,
+  MD5(numero_identificacion||tipo_identificacion) as hash_md5
+  FROM meli.transacciones
+
+
+*/SENTENCIA SQL PARA LA CREACION DE LA TABLA CLIENTES UNICOS QUE ALMACENA LOS REGISTROS UNICOS DE NUMERO IDENTIFICACION Y TIPO IDENTIFICACION 
+	DE LA TABLA TRANSACCIONES MAS EL CAMPO HASH MD5*/
+	
+CREATE TABLE meli.tx_unicas AS 
+SELECT  MD5(numero_identificacion||tipo_identificacion) as  hash_md5,
+  valor_tx
+  FROM meli.transacciones
+  
+ */SENTENCIA SQL PARA LA CREACION DE LA TABLA CLIENTES UNICOS QUE ALMACENA LOS REGISTROS UNICOS DE NUMERO IDENTIFICACION Y TIPO IDENTIFICACION 
+	DE LA TABLA TRANSACCIONES MAS EL CAMPO HASH MD5*/ 
+  SELECT c.tipo_identificacion, c.numero_identificacion, count(1) cnt_tx 
+  FROM meli.clientes_unicos c
+  join meli.tx_unicas t
+  on c.hash_md5=t.hash_md5
+  group by c.tipo_identificacion, c.numero_identificacion
+  order by count(1) desc
+  limit 10

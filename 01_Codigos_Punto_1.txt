@@ -1,0 +1,113 @@
+*/SENTENCIA SQL PARA LA CREACION DE LA TABLA SALARIOS QUE ALMACENA LOS REGISTROS DEL ARCHIVO CSV LLAMADO SALARIOS*/
+
+CREATE TABLE meli.salarios (
+  Id string,
+  EmployeeName string,
+  JobTitle string,
+  BasePay string,
+  OvertimePay string,
+  OtherPay string,
+  Benefits string,
+  TotalPay string,
+  TotalPayBenefits string,
+  Year string,
+  Notes string,
+  Agency string,
+  Status string
+) OPTIONS (
+    expiration_timestamp = TIMESTAMP '2022-08-01 00:00:00 UTC',
+    description = 'a table that expires in Agosto 2022',
+    labels = [('org_unit', 'development')]);
+
+	
+*/SENTENCIA PARA LA CARGAR LOS ARCHIVOS CSV ALMACENADOS EN CLOUD STORAGE A LA TABLA CREADA EN BIG QUERY*/	
+
+bq load     --noreplace     --source_format=CSV   --allow_quoted_newlines  meli.salarios   gs://dataproc-staging-us-central1-1065935946725-jwkfygkk/Punto_1/salarios.csv
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁNTOS CARGOS ESTABAN OCUPADOS SOLAMENTE POR UNA PERSONA EN 2011?*/
+
+select sum(cnt) crgs_ocpds_prsn from(
+SELECT count(1) cnt, JobTitle 
+FROM meli.salarios
+where year = '2011'
+group by JobTitle
+having count(1) = 1)
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁNTOS CARGOS ESTABAN OCUPADOS SOLAMENTE POR UNA PERSONA EN 2011?*/
+
+select count(1) cnt  
+FROM meli.salarios
+where UPPER(JobTitle) LIKE '%MANAGER%'
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁL ES EL NOMBRE DE LA PERSONA QUE MENOS GANA (INCLUYENDO BENEFICIOS - TOTALPAYBENEFITS)?*/
+
+SELECT MIN(CAST(TotalPayBenefits AS float64)) mns_slr, EmployeeName
+FROM meli.salarios
+group by EmployeeName
+order by MIN(CAST(TotalPayBenefits AS float64))
+limit 1
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁL ES EL SALARIO BASE (BASEPAY) PROMEDIO DE TODOS LOS EMPLEADOS PARA EL AÑO (2012)?*/
+
+SELECT AVG(CAST(BasePay AS float64)) slr_prm
+FROM meli.salarios
+WHERE YEAR = '2012'
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁL FUE LA SUMA TOTAL PAGADA CON BENEFICIOS POR LOS DOS TRABAJOS MÁS POPULARES?*/
+
+SELECT SUM(ttl_pg) ttl_pg
+ from(
+SELECT  count(1) cnt, upper(JobTitle) nom_trab,
+SUM(cast(TotalPayBenefits as FLOAT64)) ttl_pg
+FROM meli.salarios
+group by nom_trab
+ORDER BY COUNT(1) DESC
+LIMIT 2)
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁLES SON LOS 5 PROVEEDORES DE CORREO ELECTRÓNICO MÁS COMUNES, CON CUANTOS USUARIOS ESTÁ ASOCIADO CADA UNO?*/
+
+SELECT 
+substr(Email,instr(Email,'@')+1,instr(Email,'.')-instr(Email,'@')-1) prvdr_eml,
+count(1)
+FROM meli.compras
+group by prvdr_eml
+order by count(1) desc
+limit 5
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁNTAS PERSONAS TIENEN UNA TARJETA DE CRÉDITO QUE EXPIRA EN 2025?*/
+
+SELECT count(1) cnt_prsns
+FROM meli.compras
+WHERE RIGHT(CC_Exp_Date,2) = "25"
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿ CUÁNTAS PERSONAS TIENEN TARJETAS MASTERCARD E HICIERON UNA COMPRA POR MÁS DE $20?*/
+
+SELECT CC_Provider, SUM(CAST(Purchase_Price AS FLOAT64)) vl_cmpr, count(1) cnt_prsns
+FROM meli.compras
+WHERE UPPER(CC_Provider) = "MASTERCARD"
+AND CAST(Purchase_Price AS FLOAT64) > 20
+GROUP BY CC_Provider
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿ALGUIEN HIZO UNA COMPRA DESDE LOT: "90 WT", ¿CUÁL FUE EL PRECIO DE COMPRA DE ESTA TRANSACCIÓN?*/
+
+SELECT Lot, Purchase_Price
+FROM meli.compras
+UPPER(Lot) = '90 WT'
+
+
+*/SE PROCEDE A CREAR UNA CONSULTA AL SET DE DATOS SALARIOS PARA SABER ¿CUÁNTO SUMA EL TOTAL DE PRECIO DE COMPRAS PARA LAS DOS COMPAÑÍAS MENOS POPULARES?, ¿CUÁLES SON ESAS DOS COMPAÑÍAS?*/
+
+SELECT upper(Company) cmpny,
+SUM(cast(Purchase_Price as float64)) vlr
+FROM meli.compras
+group by cmpny
+order by count(1) 
+limit 2
